@@ -13,15 +13,31 @@ tfidf = pickle.load(open('tfidf_vectorizer.pkl', 'rb'))
 label_encoder_restaurant = pickle.load(open('label_encoder_restaurant.pkl', 'rb'))
 label_encoder_menu_category = pickle.load(open('label_encoder_menu_category.pkl', 'rb'))
 label_encoder_menu_item = pickle.load(open('label_encoder_menu_item.pkl', 'rb'))
+label_encoder_profitability = pickle.load(open('label_encoder_profitability.pkl', 'rb'))
 
 st.title('Prediksi Profitabilitas Menu Restoran')
 
-# Input dari pengguna
-restaurant_id = st.text_input('Restaurant ID')
-menu_category = st.text_input('Menu Category')
-menu_item = st.text_input('Menu Item')
+# Opsi untuk memilih Restaurant ID
+restaurant_ids = [0, 1, 2]
+restaurant_id = st.selectbox('Select Restaurant ID', options=restaurant_ids)
+
+# Opsi untuk memilih Menu Category
+menu_categories = [0, 1, 2, 3]
+menu_category = st.selectbox('Select Menu Category', options=menu_categories)
+
+# Opsi untuk memilih Menu Item
+menu_items = list(range(16))  # 0 hingga 15
+menu_item = st.selectbox('Select Menu Item', options=menu_items)
+
+# Opsi untuk memilih Ingredients
+ingredients_options = [
+    'confidential', 'Tomatoes', 'Basil', 'Garlic', 'Olive Oil', 'Chocolate',
+    'Butter', 'Sugar', 'Eggs', 'Chicken', 'Fettuccine', 'Alfredo Sauce', 'Parmesan'
+]
+ingredients_selected = st.multiselect('Select Ingredients', options=ingredients_options)
+
+# Input untuk Price
 price = st.number_input('Price', min_value=0.0, step=0.01)
-ingredients = st.text_area('Ingredients (separate by comma)')
 
 if st.button('Predict'):
     # Menyiapkan fitur untuk prediksi
@@ -29,12 +45,27 @@ if st.button('Predict'):
     menu_category_encoded = label_encoder_menu_category.transform([menu_category])[0]
     menu_item_encoded = label_encoder_menu_item.transform([menu_item])[0]
     
-    ingredients_tfidf = tfidf.transform([ingredients])
+    # Menyiapkan TF-IDF untuk Ingredients
+    ingredients_combined = ', '.join(ingredients_selected)
+    ingredients_tfidf = tfidf.transform([ingredients_combined])
     
-    features = hstack([pd.DataFrame([[restaurant_id_encoded, menu_category_encoded, menu_item_encoded, price]], columns=['RestaurantID', 'MenuCategory', 'MenuItem', 'Price']).values, ingredients_tfidf])
+    # Menyiapkan fitur untuk model
+    features = hstack([
+        pd.DataFrame([[restaurant_id_encoded, menu_category_encoded, menu_item_encoded, price]],
+                     columns=['RestaurantID', 'MenuCategory', 'MenuItem', 'Price']).values,
+        ingredients_tfidf
+    ])
     
     # Melakukan prediksi
     prediction = model.predict(features)
-    prediction_label = 'Profitable' if prediction[0] == 1 else 'Not Profitable'
+    prediction_proba = model.predict_proba(features)
     
-    st.write(f'The predicted profitability is: {prediction_label}')
+    # Mengambil label dari probabilitas
+    predicted_class = prediction[0]
+    proba = prediction_proba[0]
+    
+    # Menyusun label berdasarkan encoding
+    labels = label_encoder_profitability.classes_
+    
+    # Menampilkan hasil
+    st.write(f'The predicted profitability is: {labels[predicted_class]}')
